@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>长安舆图 · 场景地图</title>
+<link rel="icon" href="data:,">
+<style>
+:root { --bg:#14100e; --bg2:#1d1712; --panel:#221b15; --panel2:#2b2219; --line:#4a3a28; --text:#e8dcc8; --muted:#9a8a72; --accent:#d4a24c; --gold:#e0b657; --danger:#b8452f; --ok:#6b8e5a; --info:#4a7c9e; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC","Microsoft YaHei",serif; font-size:14px; padding:0; overflow-x:hidden; }
+.container { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+header { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+header h1 { font-size:22px; color:var(--gold); letter-spacing:4px; }
+header .sub { color:var(--muted); font-size:12px; }
+header .nav-row { display:flex; gap:8px; flex-wrap:wrap; }
+header .nav-row a { color:var(--accent); text-decoration:none; border:1px solid var(--line); padding:5px 14px; border-radius:3px; font-size:12px; transition:all .15s; }
+header .nav-row a:hover { background:var(--panel2); border-color:var(--accent); }
+.map-stats { display:flex; gap:16px; align-items:center; padding:12px 16px; background:var(--panel); border:1px solid var(--line); border-radius:4px; margin-bottom:18px; font-size:13px; flex-wrap:wrap; }
+.map-stats .stat { display:flex; align-items:center; gap:6px; }
+.map-stats .stat strong { color:var(--gold); }
+.map-stats .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.dot-visited { background:var(--ok); }
+.dot-current { background:var(--accent); box-shadow:0 0 6px var(--gold); }
+.dot-unvisited { background:var(--muted); opacity:.4; }
+.map-wrap { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px; overflow:auto; margin-bottom:24px; }
+#mapSvg { width:100%; max-width:900px; height:auto; display:block; margin:0 auto; }
+.map-tooltip { position:fixed; pointer-events:none; z-index:50; background:var(--bg2); border:1px solid var(--accent); border-radius:4px; padding:10px 14px; font-size:12px; line-height:1.6; max-width:280px; opacity:0; transition:opacity .15s; }
+.map-tooltip.show { opacity:1; }
+.map-tooltip .tt-title { color:var(--gold); font-weight:bold; font-size:14px; }
+.map-tooltip .tt-sub { color:var(--muted); font-size:11px; }
+.map-tooltip .tt-status { margin-top:4px; font-size:11px; }
+.loc-section { margin-bottom:24px; }
+.loc-section h2 { font-size:15px; color:var(--gold); letter-spacing:2px; border-left:3px solid var(--accent); padding-left:10px; margin-bottom:12px; }
+.loc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:8px; }
+.loc-item { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:3px; font-size:12px; cursor:pointer; transition:all .15s; }
+.loc-item:hover { border-color:var(--accent); }
+.loc-item .loc-icon { font-size:16px; flex-shrink:0; }
+.loc-item .loc-name { flex:1; }
+.loc-item .loc-scenes { color:var(--muted); font-size:11px; }
+.loc-item .loc-badge { font-size:9px; padding:1px 6px; border-radius:2px; flex-shrink:0; }
+.loc-badge.visited { background:rgba(107,142,90,.15); color:var(--ok); border:1px solid rgba(107,142,90,.3); }
+.loc-badge.current { background:rgba(212,162,76,.15); color:var(--gold); border:1px solid rgba(212,162,76,.3); }
+.loc-badge.unvisited { background:transparent; color:var(--muted); border:1px solid var(--line); }
+@media (max-width:640px) { .container { padding:12px 8px 40px; } header h1 { font-size:17px; } .loc-grid { grid-template-columns:1fr; } }
+</style></head><body>
+<div class="container">
+<header>
+<div><h1>🗺️长安舆图</h1><div class="sub">长安城一百零八坊 · 剧情场景地图</div></div>
+<div class="nav-row">
+<a href="../index.html">🎮 长安游戏</a>
+<a href="hub.html">🏮 总控台/a>
+<a href="../results.html">📜 结局图鉴</a>
+</div></header>
+<div class="map-stats" id="statsBar">
+  <span class="stat">📍 当前位置: <strong id="curLoc">…/strong></span>
+  <span class="stat"><span class="dot dot-visited"></span> 已到访 <strong id="visitedCount">0</strong></span>
+  <span class="stat"><span class="dot dot-unvisited"></span> 未探索 <strong id="unvisitedCount">0</strong></span>
+</div>
+<div class="map-wrap">
+<svg id="mapSvg" viewBox="0 0 840 960" xmlns="http://www.w3.org/2000/svg" font-family="SimSun,STSong,serif">
+<rect x="60" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">芳林</text>
+<rect x="160" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">玄武</text>
+<rect x="260" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">光化</text>
+<rect x="360" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">承天</text>
+<rect x="460" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">长乐</text>
+<rect x="560" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">广化</text>
+<rect x="660" y="40" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="91" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">永昌</text>
+<rect x="60" y="136" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">修德</text>
+<rect x="160" y="136" width="100" height="96" fill="#2a1a0a" stroke="#5a3a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">宫城</text>
+<rect x="260" y="136" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">辅兴</text>
+<rect x="360" y="136" width="100" height="96" fill="#2a2018" stroke="#4a3a28" stroke-width="1.5" rx="2"/>
+<text x="410" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">皇城</text>
+<rect x="460" y="136" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">永兴</text>
+<rect x="560" y="136" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">安兴</text>
+<rect x="660" y="136" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="187" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">崇仁</text>
+<rect x="60" y="232" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">群贤</text>
+<rect x="160" y="232" width="100" height="96" fill="#2a1a0a" stroke="#5a3a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">宫城</text>
+<rect x="260" y="232" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">颁政</text>
+<rect x="360" y="232" width="100" height="96" fill="#2a2018" stroke="#4a3a28" stroke-width="1.5" rx="2"/>
+<text x="410" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">皇城</text>
+<rect x="460" y="232" width="100" height="96" fill="#1a1a2a" stroke="#2a3a5a" stroke-width="1.5" rx="2"/>
+<text x="510" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">靖安</text>
+<rect x="560" y="232" width="100" height="96" fill="#1a1a2a" stroke="#2a3a5a" stroke-width="1.5" rx="2"/>
+<text x="610" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">靖安</text>
+<rect x="660" y="232" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="283" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">胜业</text>
+<rect x="60" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">怀德</text>
+<rect x="160" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">金光</text>
+<rect x="260" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">布政</text>
+<rect x="360" y="328" width="100" height="96" fill="#1a1a1a" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">朱雀</text>
+<rect x="460" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">崇义</text>
+<rect x="560" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">长兴</text>
+<rect x="660" y="328" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="379" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">宣阳</text>
+<rect x="60" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">崇化</text>
+<rect x="160" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">延康</text>
+<rect x="260" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">延寿</text>
+<rect x="360" y="424" width="100" height="96" fill="#1a1a1a" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">朱雀</text>
+<rect x="460" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">丰乐</text>
+<rect x="560" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">安业</text>
+<rect x="660" y="424" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="475" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">亲仁</text>
+<rect x="60" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">丰邑</text>
+<rect x="160" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">待贤</text>
+<rect x="260" y="520" width="100" height="96" fill="#1a2a1a" stroke="#3a4a28" stroke-width="1.5" rx="2"/>
+<text x="310" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">西市</text>
+<rect x="360" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">延寿</text>
+<rect x="460" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">通轨</text>
+<rect x="560" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">平康</text>
+<rect x="660" y="520" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="571" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">宣平</text>
+<rect x="60" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">和会</text>
+<rect x="160" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">常安</text>
+<rect x="260" y="616" width="100" height="96" fill="#1a2a1a" stroke="#3a4a28" stroke-width="1.5" rx="2"/>
+<text x="310" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">西市</text>
+<rect x="360" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">醴泉</text>
+<rect x="460" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">永乐</text>
+<rect x="560" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">平康</text>
+<rect x="660" y="616" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="667" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">升平</text>
+<rect x="60" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">永平</text>
+<rect x="160" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">和平</text>
+<rect x="260" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">义宁</text>
+<rect x="360" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">光德</text>
+<rect x="460" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">兴道</text>
+<rect x="560" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">务本</text>
+<rect x="660" y="712" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="763" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">修行</text>
+<rect x="60" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="110" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">通轨</text>
+<rect x="160" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="210" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">归义</text>
+<rect x="260" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="310" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">大通</text>
+<rect x="360" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="410" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">善和</text>
+<rect x="460" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="510" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">开化</text>
+<rect x="560" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="610" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">崇义</text>
+<rect x="660" y="808" width="100" height="96" fill="#1d1712" stroke="#3a2a1a" stroke-width="1.5" rx="2"/>
+<text x="710" y="859" text-anchor="middle" fill="var(--muted)" font-size="11" opacity=".7">长兴</text>
+<text x="62" y="918" fill="var(--muted)" font-size="10" opacity=".5">南· 明德门/text>
+<text x="758" y="918" text-anchor="end" fill="var(--muted)" font-size="10" opacity=".5">北· 玄武门/text>
+<text x="410" y="34" text-anchor="middle" fill="var(--accent)" font-size="13" font-weight="bold" opacity=".7">↓朱雀大街 ↓/text>
+<g id="mkr_1" class="loc-marker" data-loc="死牢" data-short="死牢" data-grid="2,8" transform="translate(310,856)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🔒</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">死牢</text>
+</g>
+<g id="mkr_2" class="loc-marker" data-loc="靖安司" data-short="靖安司" data-grid="2,2" transform="translate(310,280)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏛️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">靖安司</text>
+</g>
+<g id="mkr_3" class="loc-marker" data-loc="案牍库" data-short="案牍库" data-grid="2,2" transform="translate(310,280)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">📜</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">案牍库</text>
+</g>
+<g id="mkr_4" class="loc-marker" data-loc="西市" data-short="西市" data-grid="1,5" transform="translate(210,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏪</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">西市</text>
+</g>
+<g id="mkr_5" class="loc-marker" data-loc="西市深处" data-short="西市深处" data-grid="1,5" transform="translate(210,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏪</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">西市深处</text>
+</g>
+<g id="mkr_6" class="loc-marker" data-loc="西市老铺" data-short="老铺" data-grid="1,5" transform="translate(210,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏚️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">老铺</text>
+</g>
+<g id="mkr_7" class="loc-marker" data-loc="胡饼摊" data-short="胡饼摊" data-grid="1,4" transform="translate(210,472)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🫓</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">胡饼摊</text>
+</g>
+<g id="mkr_8" class="loc-marker" data-loc="香铺" data-short="香铺" data-grid="1,5" transform="translate(210,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏺</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">香铺</text>
+</g>
+<g id="mkr_9" class="loc-marker" data-loc="平康坊" data-short="平康坊" data-grid="5,5" transform="translate(610,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🌙</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">平康坊</text>
+</g>
+<g id="mkr_10" class="loc-marker" data-loc="望楼" data-short="望楼" data-grid="3,6" transform="translate(410,664)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏗️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">望楼</text>
+</g>
+<g id="mkr_11" class="loc-marker" data-loc="望楼顶" data-short="望楼顶" data-grid="3,6" transform="translate(410,664)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏗️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">望楼顶</text>
+</g>
+<g id="mkr_12" class="loc-marker" data-loc="兴庆宫" data-short="兴庆宫" data-grid="5,1" transform="translate(610,184)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏯</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">兴庆宫</text>
+</g>
+<g id="mkr_13" class="loc-marker" data-loc="灯楼底" data-short="灯楼" data-grid="5,1" transform="translate(610,184)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏯</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">灯楼</text>
+</g>
+<g id="mkr_14" class="loc-marker" data-loc="灯楼火中" data-short="灯楼·火" data-grid="5,1" transform="translate(610,184)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🔥</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">灯楼·火</text>
+</g>
+<g id="mkr_15" class="loc-marker" data-loc="灯楼顶" data-short="灯楼·顶" data-grid="5,1" transform="translate(610,184)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🔥</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">灯楼·顶</text>
+</g>
+<g id="mkr_16" class="loc-marker" data-loc="右骁卫" data-short="右骁卫" data-grid="1,2" transform="translate(210,280)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">⚔️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">右骁卫</text>
+</g>
+<g id="mkr_17" class="loc-marker" data-loc="三不管夹道" data-short="三不管" data-grid="1,6" transform="translate(210,664)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🚪</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">三不管</text>
+</g>
+<g id="mkr_18" class="loc-marker" data-loc="暗巷" data-short="暗巷" data-grid="2,5" transform="translate(310,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🌑</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">暗巷</text>
+</g>
+<g id="mkr_19" class="loc-marker" data-loc="废弃宅院" data-short="废宅" data-grid="2,5" transform="translate(310,568)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏚️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">废宅</text>
+</g>
+<g id="mkr_20" class="loc-marker" data-loc="宵禁街" data-short="宵禁街" data-grid="3,3" transform="translate(410,376)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🚫</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">宵禁街</text>
+</g>
+<g id="mkr_21" class="loc-marker" data-loc="街上" data-short="街上" data-grid="2,4" transform="translate(310,472)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🏘️</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">街上</text>
+</g>
+<g id="mkr_22" class="loc-marker" data-loc="茶棚" data-short="茶棚" data-grid="2,4" transform="translate(310,472)" style="cursor:pointer">
+<circle r="16" fill="var(--bg2)" stroke="var(--line)" stroke-width="2" class="mkr-ring"/>
+<text text-anchor="middle" y="5" font-size="18" class="mkr-icon">🍵</text>
+<text text-anchor="middle" y="32" fill="var(--accent)" font-size="11" font-weight="bold" class="mkr-label">茶棚</text>
+</g>
+</svg>
+</div>
+<div class="map-tooltip" id="mapTooltip">
+<div class="tt-title" id="ttTitle"></div>
+<div class="tt-sub" id="ttSub"></div>
+<div class="tt-status" id="ttStatus"></div>
+</div>
+<div class="loc-section">
+<h2>📍 全场景地点/h2>
+<div class="loc-grid" id="locGrid"></div>
+</div>
+</div><!-- container -->
+<div class="map-tooltip" id="mapTooltip">
+<div class="tt-title" id="ttTitle"></div>
+<div class="tt-sub" id="ttSub"></div>
+<div class="tt-status" id="ttStatus"></div>
+</div>
+<script>
+const SAVE_KEY = 'changan-save-v1';
+
+function getSaveData() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+// Map: scene place text -> our internal key
+const PLACE_TO_KEY = {
+  '长安 · 死牢':'死牢',
+  '靖安司':'靖安司','靖安司· 廊下':'靖安司','靖安司· 案牍库':'案牍库',
+  '靖安司· 门外':'靖安司','靖安司· 门槛':'靖安司',
+  '西市':'西市','西市 · 巷战':'西市','西市 · 深处':'西市深处',
+  '西市 · 老铺':'西市老铺','西市 · 胡饼摊前':'胡饼摊',
+  '香铺':'香铺',
+  '平康坊· 地下暗市':'平康坊',
+  '长安 · 望楼':'望楼','长安 · 望楼顶':'望楼顶',
+  '兴庆宫':'兴庆宫','兴庆宫· 灯楼':'兴庆宫',
+  '兴庆宫· 灯楼底':'灯楼底','灯楼 · 火中':'灯楼火中','灯楼 · 顶':'灯楼顶',
+  '右骁卫军营':'右骁卫',
+  '长安 · 三不管夹道':'三不管夹道','长安 · 暗巷':'暗巷',
+  '长安 · 废弃宅院':'废弃宅院','长安 · 宵禁街':'宵禁街',
+  '长安 · 街上':'街上','长安 · 茶棚':'茶棚',
+};
+
+// Visited scenes from save data (flags contain scene visit info indirectly)
+// We determine visited locations from the save's flags and sceneId
+function getVisitedKeys(save) {
+  const keys = new Set();
+  if (!save) return keys;
+
+  // The save has sceneId - current scene
+  // And flags - past visited nodes
+  // We map scenes to locations via PLACE_TO_KEY
+  // Since we don't have scene-to-place mapping here, use the save's flags
+  // which contain visited nodes as flag names for visited scene ids
+
+  // Current scene
+  const curPlace = PLACE_TO_KEY[save.sceneId];
+  if (curPlace) keys.add(curPlace);
+
+  // From flags, extract scene id prefixes
+  // We'll use a simpler approach: check scene-visit flags
+  // If one exists, add related location
+
+  return keys;
+}
+
+function init() {
+  const save = getSaveData();
+  const visited = new Set();
+  let currentLoc = '…';
+
+  if (save) {
+    // Try to determine current location from sceneId
+    const curPlace = PLACE_TO_KEY[save.sceneId];
+    if (curPlace) currentLoc = curPlace;
+
+    // Mark visited: from flags named after specific scene-visit patterns
+    // and the current scene
+    if (curPlace) visited.add(curPlace);
+
+    // Also check flags that might indicate visited locations
+    const flagLocMap = {
+      'went_willingly':'靖安司','cautious':'靖安司',
+      'entered_jingsi':'靖安司','xichat':'西市',
+      'talked_to_ge':'平康坊','huwei':'右骁卫',
+      'climb_wanglou':'望楼','visited_qinglong':'兴庆宫',
+      'entered_denglou':'灯楼底',
+    };
+    if (save.flags) {
+      save.flags.forEach(f => {
+        if (flagLocMap[f]) visited.add(flagLocMap[f]);
+      });
+    }
+  }
+
+  // Update stats
+  const allMarkerKeys = Object.keys(PLACE_TO_KEY).map(k => PLACE_TO_KEY[k]);
+  const uniqueLocs = [...new Set(allMarkerKeys)];
+
+  document.getElementById('curLoc').textContent = currentLoc;
+  document.getElementById('visitedCount').textContent = visited.size;
+  document.getElementById('unvisitedCount').textContent = uniqueLocs.length - visited.size;
+
+  // Update SVG markers
+  document.querySelectorAll('.loc-marker').forEach(g => {
+    const loc = g.dataset.loc;
+    const ring = g.querySelector('.mkr-ring');
+    const label = g.querySelector('.mkr-label');
+    if (loc === currentLoc) {
+      ring.setAttribute('fill', 'var(--accent)');
+      ring.setAttribute('stroke', 'var(--gold)');
+      label.setAttribute('fill', 'var(--gold)');
+      g.style.opacity = '1';
+    } else if (visited.has(loc)) {
+      ring.setAttribute('fill', 'rgba(107,142,90,.25)');
+      ring.setAttribute('stroke', 'var(--ok)');
+      label.setAttribute('fill', 'var(--ok)');
+      g.style.opacity = '1';
+    } else {
+      ring.setAttribute('fill', 'transparent');
+      ring.setAttribute('stroke', 'var(--line)');
+      label.setAttribute('fill', 'var(--muted)');
+      g.style.opacity = '.6';
+    }
+  });
+
+  // Build location grid
+  const grid = document.getElementById('locGrid');
+  const locList = [
+    {key:'死牢',icon:'🔒',name:'死牢',sceneCount:3},
+    {key:'靖安司',icon:'🏛️',name:'靖安司',sceneCount:17},
+    {key:'案牍库',icon:'📜',name:'案牍库',sceneCount:3},
+    {key:'西市',icon:'🏪',name:'西市',sceneCount:6},
+    {key:'西市深处',icon:'🏪',name:'西市深处',sceneCount:3},
+    {key:'西市老铺',icon:'🏚️',name:'老铺',sceneCount:3},
+    {key:'胡饼摊',icon:'🫓',name:'胡饼摊',sceneCount:1},
+    {key:'香铺',icon:'🏺',name:'香铺',sceneCount:5},
+    {key:'平康坊',icon:'🌙',name:'平康坊·暗市',sceneCount:4},
+    {key:'望楼',icon:'🏗️',name:'望楼',sceneCount:3},
+    {key:'望楼顶',icon:'🏗️',name:'望楼顶',sceneCount:1},
+    {key:'兴庆宫',icon:'🏯',name:'兴庆宫',sceneCount:1},
+    {key:'灯楼底',icon:'🏯',name:'灯楼',sceneCount:5},
+    {key:'灯楼火中',icon:'🔥',name:'灯楼·火中',sceneCount:1},
+    {key:'灯楼顶',icon:'🔥',name:'灯楼·顶',sceneCount:4},
+    {key:'右骁卫',icon:'⚔️',name:'右骁卫军营',sceneCount:5},
+    {key:'三不管夹道',icon:'🚪',name:'三不管夹道',sceneCount:3},
+    {key:'暗巷',icon:'🌑',name:'暗巷',sceneCount:3},
+    {key:'废弃宅院',icon:'🏚️',name:'废弃宅院',sceneCount:4},
+    {key:'宵禁街',icon:'🚫',name:'宵禁街',sceneCount:1},
+    {key:'街上',icon:'🏘️',name:'街上',sceneCount:4},
+    {key:'茶棚',icon:'🍵',name:'茶棚',sceneCount:1},
+  ];
+
+  grid.innerHTML = locList.map(l => {
+    const v = visited.has(l.key);
+    const c = l.key === currentLoc;
+    const badge = c ? 'current' : (v ? 'visited' : 'unvisited');
+    const badgeLabel = c ? '当前' : (v ? '已到访' : '未探索');
+    return `<div class="loc-item" data-loc="${l.key}">
+      <span class="loc-icon">${l.icon}</span>
+      <span class="loc-name">${l.name}</span>
+      <span class="loc-scenes">${l.sceneCount} 场景</span>
+      <span class="loc-badge ${badge}">${badgeLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+// Tooltip logic
+const tooltip = document.getElementById('mapTooltip');
+const ttTitle = document.getElementById('ttTitle');
+const ttSub = document.getElementById('ttSub');
+const ttStatus = document.getElementById('ttStatus');
+
+document.addEventListener('mouseover', e => {
+  const g = e.target.closest('.loc-marker');
+  if (!g) { tooltip.classList.remove('show'); return; }
+  const loc = g.dataset.loc;
+  const short = g.dataset.short;
+  const grid = g.dataset.grid;
+  ttTitle.textContent = short || loc;
+  ttSub.textContent = '坊格: ' + grid;
+  ttStatus.textContent = '已到访场景· 点击定位';
+  tooltip.classList.add('show');
+});
+
+document.addEventListener('mousemove', e => {
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top = (e.clientY + 14) + 'px';
+});
+
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('.loc-marker')) tooltip.classList.remove('show');
+});
+
+// Click location item to scroll to marker
+document.addEventListener('click', e => {
+  const item = e.target.closest('.loc-item');
+  if (!item) return;
+  const loc = item.dataset.loc;
+  const marker = document.querySelector(`.loc-marker[data-loc="${loc}"]`);
+  if (marker) {
+    marker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash effect
+    marker.style.transition = 'opacity .3s';
+    marker.style.opacity = '0.3';
+    setTimeout(() => { marker.style.opacity = ''; }, 600);
+  }
+});
+
+init();
+</script>
+</body></html>

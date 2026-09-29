@@ -3,7 +3,7 @@
 过场是本轮新增的节点类型（只有 next、没有 choices，渲染成一个「继续」按钮）。
 结构测试只能证明按钮存在且能点，证明不了它看起来像不像"该点一下"。
 
-用法：python tools/shot_passage.py
+用法：python tools/smoke/shot_passage.py
 """
 import sys
 from pathlib import Path

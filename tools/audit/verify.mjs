@@ -1,10 +1,11 @@
 // 剧情树 / 数据契约 校验
 // 覆盖：节点连通性、时辰合法性、条件表达式、条件路由、人格权重、MBTI 权重、
 //      16 型定义、角色向量，以及"不留死路"（每个节点至少一个无条件选项）。
-import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage, nextTargets } from '../src/data/scenes.js';
-import { characters, hours } from '../src/data/characters.js';
-import { TRAITS, CHOICE_TRAITS, CHARACTER_TRAITS } from '../src/data/traits.js';
-import { MBTI_DIMS, MBTI_TYPES, MBTI_CHOICE, CHARACTER_MBTI } from '../src/data/mbti.js';
+import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage, nextTargets } from '../../src/data/scenes.js';
+import { characters, hours } from '../../src/data/characters.js';
+import { TRAITS, CHOICE_TRAITS, CHARACTER_TRAITS } from '../../src/data/traits.js';
+import { MBTI_DIMS, MBTI_TYPES, MBTI_CHOICE, CHARACTER_MBTI } from '../../src/data/mbti.js';
+import { PUZZLE_PIPELINES } from '../../src/data/puzzles.js';
 
 let errors = [];
 let warnings = [];
@@ -29,6 +30,9 @@ const isFree = (ch) => !ch.require;
 // 全剧所有可设置的 flag（用于查"幽灵条件"）
 const allFlags = new Set();
 ids.forEach(id => (scenes[id].choices || []).forEach(ch => { if (ch.flag) allFlags.add(ch.flag); }));
+// 推理解谜管线的 reward flag：运行时由 checkNewUnlocks 动态设置（不是静态 choice.flag），
+// 同样是"可设置"的，不能当成幽灵条件。
+PUZZLE_PIPELINES.forEach(p => allFlags.add(p.reward.flag));
 
 // 条件里被引用到的 flag
 const usedFlags = new Set();

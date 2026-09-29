@@ -10,8 +10,8 @@
 //
 // 运行：node tools/branch_audit.mjs
 
-import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage, nextTargets } from '../src/data/scenes.js';
-import { characters } from '../src/data/characters.js';
+import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage, nextTargets } from '../../src/data/scenes.js';
+import { characters } from '../../src/data/characters.js';
 
 const ids = Object.keys(scenes);
 const endings = ids.filter(i => scenes[i].ending);

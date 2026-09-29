@@ -11,10 +11,11 @@
 // ⚠️ 这里的规则实现刻意与 src/main.js 保持一致。改动引擎的条件语义或计分逻辑时，
 //    两边都要改，否则模拟结果就不再代表真实游戏。
 
-import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage } from '../src/data/scenes.js';
-import { characters } from '../src/data/characters.js';
-import { TRAITS, CHOICE_TRAITS, nodeMax } from '../src/data/traits.js';
-import { MBTI_DIMS, MBTI_CHOICE, computeMBTI, mbtiNodeStats } from '../src/data/mbti.js';
+import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage } from '../../src/data/scenes.js';
+import { characters } from '../../src/data/characters.js';
+import { TRAITS, CHOICE_TRAITS, nodeMax } from '../../src/data/traits.js';
+import { MBTI_DIMS, MBTI_CHOICE, computeMBTI, mbtiNodeStats } from '../../src/data/mbti.js';
+import { checkNewUnlocks } from '../../src/data/puzzles.js';
 
 const DIM_KEYS = MBTI_DIMS.map(d => d.key);
 
@@ -107,6 +108,12 @@ function step(st, index) {
   if (ch.trust) {
     for (const id in ch.trust) st.trust[id] = (st.trust[id] ?? 0) + ch.trust[id];
   }
+
+  // ===== 推理突破检查（对应 main.js 的 checkNewUnlocks）=====
+  // 线索集齐阈值后，管线 reward flag 会在运行时点亮 —— 不建模这步，
+  // 依赖 puzzle_* flag 的选项（如 h_hai 的推理突破线）就永远不可用。
+  const newUnlocks = checkNewUnlocks(st.clues, st.flags);
+  for (const p of newUnlocks) st.flags.add(p.reward.flag);
 
   st.sceneId = resolveTo(st, ch.to);
 }

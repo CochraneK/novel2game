@@ -18,7 +18,7 @@
  *
  * 注意：这个工具**不判断文笔好坏**，只报"字面重复"。它给的是人眼该看哪里。
  */
-import { scenes, isPassage } from '../src/data/scenes.js';
+import { scenes, isPassage } from '../../src/data/scenes.js';
 
 // 归一化：去掉空白、{{inserts}} 锚点、以及所有标点/符号。
 // 只留汉字、字母、数字 —— 否则「。」这种重复会刷满屏，而"李必"两字相同又不是问题。

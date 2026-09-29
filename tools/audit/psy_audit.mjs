@@ -11,10 +11,10 @@
 // 运行：node tools/psy_audit.mjs
 // 它不依赖浏览器，与 src/main.js 共用同一套数据模块。
 
-import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage } from '../src/data/scenes.js';
-import { characters } from '../src/data/characters.js';
-import { TRAITS, nodeMax } from '../src/data/traits.js';
-import { MBTI_DIMS, MBTI_CHOICE, mbtiNodeStats, computeMBTI } from '../src/data/mbti.js';
+import { scenes, START_SCENE, PROTAGONIST, ALLY_TRUST, isPassage } from '../../src/data/scenes.js';
+import { characters } from '../../src/data/characters.js';
+import { TRAITS, nodeMax } from '../../src/data/traits.js';
+import { MBTI_DIMS, MBTI_CHOICE, mbtiNodeStats, computeMBTI } from '../../src/data/mbti.js';
 
 const DIM_KEYS = MBTI_DIMS.map(d => d.key);
 const DIM_OF = Object.fromEntries(MBTI_DIMS.map(d => [d.key, d]));

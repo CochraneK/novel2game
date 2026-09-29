@@ -19,8 +19,8 @@
  *   node tools/continuity_audit.mjs            # 全量
  *   node tools/continuity_audit.mjs jumps      # 只看换场（place 变化）与跨时辰
  */
-import { scenes, isPassage, nextTargets, START_SCENE } from '../src/data/scenes.js';
-import { hours, characters } from '../src/data/characters.js';
+import { scenes, isPassage, nextTargets, START_SCENE } from '../../src/data/scenes.js';
+import { hours, characters } from '../../src/data/characters.js';
 
 const HOUR_ORDER = hours.map(h => h.key);
 const hourLabel = Object.fromEntries(hours.map(h => [h.key, h.name]));

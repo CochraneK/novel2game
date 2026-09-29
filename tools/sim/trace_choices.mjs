@@ -13,8 +13,8 @@
 // 用法：node tools/trace_choices.mjs            # 全部
 //       node tools/trace_choices.mjs h_si       # 只看某个节点的选项
 //       node tools/trace_choices.mjs --brief    # 只打"紧接着读到什么"，不打引用清单
-import { scenes, isPassage } from '../src/data/scenes.js';
-import { resolveText } from '../src/text.js';
+import { scenes, isPassage } from '../../src/data/scenes.js';
+import { resolveText } from '../../src/text.js';
 
 const argv = process.argv.slice(2);
 const brief = argv.includes('--brief');

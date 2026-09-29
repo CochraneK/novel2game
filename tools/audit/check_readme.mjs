@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process';
 //    2026-09-11 真实踩到一次（用 Python 文本模式写 README，整文件被转成 CRLF）。
 //    归一化在这里做一次，比去改每个正则可靠。
 const md = fs.readFileSync('README.md', 'utf8').replace(/\r\n/g, '\n');
-const actual = execSync('node tools/verify.mjs', { encoding: 'utf8' });
+const actual = execSync('node tools/audit/verify.mjs', { encoding: 'utf8' });
 
 const m = md.match(/### `verify` 覆盖项目\s*\n+```\n([\s\S]*?)```/);
 if (!m) {

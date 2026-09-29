@@ -1,0 +1,11 @@
+# 测试脚本产出的截图（shot* / mbti_* / psy_* / gate_* 等全部调试用图）
+tools/*.png
+
+# trace_choices.mjs / dump_play.py 导出的审计报告（可随时用 npm run trace / dump 重新生成）—— 生成物，不提交
+reports/*.txt
+
+# dist 构建产物（可随时用 python tools/gen/build_dist.py 重新生成）
+dist/
+
+# Windows 保留设备名文件（nul），所有工具都删不动，手动删：cmd 里 del "\\?\<完整路径>\nul"
+docs/_remove_chang/

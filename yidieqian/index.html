@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>一叠钱</title>
+<meta name="description" content="一九五一年冬。一张纸，一叠钱，一个必须做出的决定。文字叙事游戏，改编自公众号「陈穆行纪」《一叠钱》。">
+<style>
+  /* ============================================================
+     一叠钱 · 文字叙事游戏
+     视觉基调：一九五一年深夜，一盏积灰的旧灯，一张纸，一支笔。
+     深色暖调 + 宋体衬线 + 极慢的灯光呼吸。心志越高，灯越亮。
+     自包含单文件，零外部依赖，离线可开。
+     ============================================================ */
+
+  :root {
+    --bg:        #0b0906;
+    --bg-2:      #100d08;
+    --ink:       #e7d9bf;
+    --ink-dim:   #b7a88c;
+    --ink-faint: #71644f;
+    --amber:     #cf9b4d;
+    --amber-2:   #a8793a;
+    --amber-3:   #6e5326;
+    --rule:      rgba(207,155,77,0.22);
+    --card:      rgba(255, 236, 200, 0.028);
+    --lamp:      0.7;   /* 0..1 由心志驱动 */
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Songti SC", "STSong", "SimSun", "NSimSun",
+                 "Noto Serif CJK SC", "Source Han Serif SC",
+                 "Noto Serif SC", Georgia, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* ---- 灯光（两层：大范围暖晕 + 灯芯高光）---- */
+  .lamp, .lamp-core {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .lamp {
+    background: radial-gradient(ellipse 72% 60% at 50% 34%,
+      rgba(222,168,94, calc(0.17 * var(--lamp))) 0%,
+      rgba(158,106,46, calc(0.06 * var(--lamp))) 42%,
+      rgba(11,9,6,0) 74%);
+    animation: breathe 7s ease-in-out infinite;
+  }
+  .lamp-core {
+    background: radial-gradient(circle 190px at 50% 27%,
+      rgba(255,216,150, calc(0.11 * var(--lamp))) 0%,
+      transparent 68%);
+    animation: breathe 7s ease-in-out infinite;
+    animation-delay: -3.5s;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.82; }
+    50%      { opacity: 1; }
+  }
+
+  /* 极淡的纸纹颗粒，增加年代感 */
+  .grain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.05;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.04) 0 1px, transparent 1px 4px);
+    mix-blend-mode: overlay;
+  }
+
+  /* ---- 主舞台 ---- */
+  .stage {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    padding: 72px 22px 96px;
+  }
+  .column {
+    width: 100%;
+    max-width: 620px;
+    margin: auto;   /* 短内容垂直居中，长内容移动端不裁切顶部 */
+    opacity: 1;
+    transition: opacity 0.42s ease;
+  }
+  .column.fade { opacity: 0; }
+
+  /* ---- 章节标记 ---- */
+  .marker {
+    text-align: center;
+    color: var(--amber-2);
+    letter-spacing: 0.5em;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    text-indent: 0.5em;
+  }
+  .marker .num { color: var(--amber); }
+  .rule {
+    height: 1px;
+    width: 56px;
+    margin: 14px auto 34px;
+    background: linear-gradient(90deg, transparent, var(--amber-3), transparent);
+  }
+
+  /* ---- 正文 ---- */
+  .scene-text p {
+    margin: 0 0 1.15em;
+    font-size: 1.04rem;
+    line-height: 2.12;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    text-align: justify;
+  }
+  .scene-text p:last-child { margin-bottom: 0; }
+  .scene-text .dim  { color: var(--ink-dim); }
+  .scene-text .key  { color: var(--ink); font-weight: 600; }
+  .scene-text .say  { color: var(--ink-dim); }
+
+  /* ---- 抉择 ---- */
+  .choices {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .choice {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-left: 2px solid var(--amber-3);
+    padding: 15px 18px 15px 18px;
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.8;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: all 0.32s ease;
+    border-radius: 0 2px 2px 0;
+  }
+  .choice .idx {
+    color: var(--amber-3);
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    flex: none;
+    width: 1.1em;
+    transition: color 0.32s ease;
+  }
+  .choice .txt { flex: 1; }
+  .choice:hover, .choice:focus {
+    outline: none;
+    border-left-color: var(--amber);
+    color: var(--ink);
+    background: linear-gradient(90deg, rgba(207,155,77,0.07), transparent 70%);
+    transform: translateX(6px);
+  }
+  .choice:hover .idx, .choice:focus .idx { color: var(--amber); }
+
+  /* 单一"继续"式选择，弱化呈现 */
+  .choice.solo { justify-content: center; border-left-color: transparent; }
+  .choice.solo .idx { display: none; }
+  .choice.solo:hover { transform: none; background: none; }
+  .choice.solo .txt {
+    letter-spacing: 0.35em;
+    text-indent: 0.35em;
+    color: var(--amber-2);
+    font-size: 0.95rem;
+  }
+  .choice.solo:hover .txt { color: var(--amber); }
+
+  /* ---- 历史档案卡（终章揭示）---- */
+  .archive {
+    margin-top: 46px;
+    padding: 30px 26px 26px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    position: relative;
+  }
+  .archive::before {
+    content: "史 料";
+    position: absolute;
+    top: -0.62em;
+    left: 24px;
+    background: var(--bg);
+    padding: 0 12px;
+    color: var(--amber-2);
+    font-size: 0.78rem;
+    letter-spacing: 0.5em;
+  }
+  .archive p {
+    margin: 0 0 1em;
+    font-size: 0.96rem;
+    line-height: 2.05;
+    letter-spacing: 0.02em;
+    color: var(--ink-dim);
+    text-align: justify;
+  }
+  .archive p:last-child { margin-bottom: 0; }
+  .archive .name { color: var(--ink); font-weight: 600; }
+  .archive .date { color: var(--amber); }
+  .archive .final {
+    color: var(--ink);
+    font-size: 1.02rem;
+    line-height: 2.15;
+    margin-top: 1.4em;
+  }
+  .archive .final .quote {
+    color: var(--amber);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- 结局标题 ---- */
+  .ending-title {
+    text-align: center;
+    color: var(--amber);
+    font-size: 1.5rem;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+    margin: 6px 0 4px;
+    font-weight: 500;
+  }
+  .ending-sub {
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    margin-bottom: 34px;
+  }
+
+  /* ---- 重新开始 ---- */
+  .restart {
+    margin-top: 44px;
+    text-align: center;
+  }
+  .restart button {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 0.9rem;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    padding: 12px 34px;
+    cursor: pointer;
+    touch-action: manipulation;
+    border-radius: 2px;
+    transition: all 0.35s ease;
+  }
+  .restart button:hover {
+    color: var(--amber);
+    border-color: var(--amber-2);
+    background: rgba(207,155,77,0.05);
+  }
+
+  /* ---- 页脚署名 ---- */
+  .footer {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 3;
+    text-align: center;
+    padding: 16px 18px 20px;
+    font-size: 0.76rem;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .footer .sep { margin: 0 10px; opacity: 0.5; }
+
+  /* ---- 角落重开 ---- */
+  .corner-restart {
+    position: fixed;
+    top: 18px; right: 20px;
+    z-index: 4;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    font-family: inherit;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    touch-action: manipulation;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, color 0.3s ease;
+  }
+  .corner-restart.show { opacity: 1; pointer-events: auto; }
+  .corner-restart:hover { color: var(--amber); }
+
+  /* ---- 心志 gauge（左缘竖条，桌面端显示；移动端由灯光代替反馈）---- */
+  .gauge {
+    position: fixed;
+    left: 22px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 4;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  @media (min-width: 720px) { .gauge { display: flex; } }
+  .gauge.show { opacity: 1; }
+  .gauge .word {
+    writing-mode: vertical-rl;
+    color: var(--ink-faint);
+    font-size: 0.72rem;
+    letter-spacing: 0.4em;
+    transition: color 0.6s ease;
+  }
+  .gauge.show .word { color: var(--amber-2); }
+  .gauge .track {
+    width: 2px;
+    height: 84px;
+    background: rgba(207,155,77,0.14);
+    border-radius: 1px;
+    position: relative;
+    overflow: hidden;
+  }
+  .gauge .fill {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40%;
+    background: linear-gradient(180deg, var(--amber), var(--amber-3));
+    transition: height 0.8s ease;
+    border-radius: 1px;
+  }
+
+  /* ---- 结局图鉴（开场屏底部）---- */
+  .codex {
+    margin-top: 42px;
+    padding-top: 26px;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+  }
+  .codex .label {
+    color: var(--ink-faint);
+    font-size: 0.74rem;
+    letter-spacing: 0.5em;
+    text-indent: 0.5em;
+    margin-bottom: 16px;
+  }
+  .codex .row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .codex .cell {
+    padding: 7px 16px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+  }
+  .codex .cell.lit {
+    color: var(--amber);
+    border-color: var(--amber-3);
+    background: rgba(207,155,77,0.05);
+  }
+  .codex .hint {
+    margin-top: 14px;
+    color: var(--ink-faint);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+  }
+
+  /* ---- 首次解锁提示 ---- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 64px;
+    transform: translateX(-50%) translateY(12px);
+    z-index: 6;
+    background: rgba(16,13,8,0.92);
+    border: 1px solid var(--rule);
+    color: var(--ink-dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.18em;
+    padding: 10px 22px;
+    border-radius: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast b { color: var(--amber); font-weight: 600; margin: 0 6px; }
+
+  /* ---- 移动端 ---- */
+  @media (max-width: 520px) {
+    .stage { padding: calc(56px + env(safe-area-inset-top)) 18px calc(84px + env(safe-area-inset-bottom)); }
+    .scene-text p { font-size: 1rem; line-height: 1.95; }
+    .marker { letter-spacing: 0.35em; }
+    .choices { margin-top: 32px; gap: 10px; }
+    .choice { padding: 16px 14px; font-size: 0.98rem; }
+    .archive { margin-top: 36px; padding: 24px 18px 20px; }
+    .ending-title { font-size: 1.3rem; }
+    .restart { margin-top: 36px; }
+    .restart button { padding: 13px 28px; }
+    .footer { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+    .toast { bottom: calc(56px + env(safe-area-inset-bottom)); font-size: 0.74rem; letter-spacing: 0.1em; }
+  }
+</style>
+</head>
+<body>
+  <div class="lamp"></div>
+  <div class="lamp-core"></div>
+  <div class="grain"></div>
+
+  <button class="corner-restart" id="cornerRestart" title="从头开始">重 新 开 始</button>
+
+  <div class="gauge" id="gauge" aria-hidden="true">
+    <span class="word" id="gaugeWord">平稳</span>
+    <span class="track"><span class="fill" id="gaugeFill"></span></span>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <main class="stage">
+    <div class="column" id="column"></div>
+  </main>
+
+  <footer class="footer">
+    改编自公众号「陈穆行纪」《一叠钱》
+    <span class="sep">·</span>
+    刘青山、张子善案
+    <span class="sep">·</span>
+    一九五一年
+  </footer>
+
+<script>
+/* ================================================================
+   一叠钱 · 叙事引擎
+   场景图：intro → 一灯下 → … → 四落笔(关键分岔) → 多结局
+   隐藏"心志"值：选择累计，驱动灯光明暗与落笔结局的三种尾声。
+   ================================================================ */
+
+// ---- 共享：历史档案（所有结局的终章揭示）----
+const HISTORICAL = [
+  { t: '他叫 <span class="name">李克才</span>。' },
+  { t: '那个曾经和他并肩作战、后来成为他不得不反映问题的同志，叫 <span class="name">刘青山</span>。另一个名字，叫 <span class="name">张子善</span>。' },
+  { t: '公开史料记载，李克才曾多次抵制刘青山、张子善的不当做法，包括反对挪用地方粮、河工粮，也拒绝接受张子善送钱。一九五一年，他又多次向上级反映有关问题。同年十一月二十一日，在河北省第三次党代会上，他进一步公开揭发刘青山、张子善的问题。此后，河北省委派出人员进行调查，案件逐渐从个人之间的争执，变成了组织必须面对的问题。' },
+  { t: '<span class="date">一九五二年二月十日</span>，刘青山、张子善在保定被执行死刑。刘青山终年三十六岁。张子善终年三十八岁。' },
+  { t: '李克才后来也没有成为一个生活在历史聚光灯下的人。事情结束以后，时间继续向前。新的工作，新的生活，新的国家，新的问题。那些曾经改变过历史的人，也重新变成普通人。' },
+  { t: '<span class="date">二〇〇一年六月三十日</span>，李克才在天津胸科医院病逝，享年八十四岁。距离一九五一年，已经过去了半个世纪。' },
+  { class: 'final', html: '可是有些事情不会因此消失。因为真正重要的，从来不是一个人的名字有多少人记得，而是——当历史重新把同样的问题摆到桌子上的时候，还有没有人能够站出来，讲一句：<br><span class="quote">不能这么做。</span>' }
+];
+
+// ---- 场景数据 ----
+const SCENES = {
+
+  /* ============ 开场 ============ */
+  intro: {
+    marker: null,
+    title: true,
+    render: (state) => `
+      <div class="marker" style="margin-bottom:10px;">一九五一年 · 冬前</div>
+      <div class="rule"></div>
+      <div class="ending-title" style="margin:10px 0 6px;">一 叠 钱</div>
+      <div class="ending-sub" style="margin-bottom:44px;">文字叙事游戏</div>
+      <div class="scene-text">
+        <p class="dim">那天晚上，他没有立即回家。</p>
+        <p>桌上只有一盏灯。灯罩已经旧了，积着一层灰，光从尘土之间透出来，黄黄的。</p>
+        <p>他坐在那里，看着面前的那张纸。纸上有一串数字。</p>
+        <p class="dim">仗打完以后，枪声消失得很快，人的脚步声却越来越多。机关多了，办公室多了，文件多了，印章多了，会议也多了。</p>
+        <p>从前大家盼着天下太平。如今天下真的太平了一些，他却忽然发现——<span class="key">太平也有太平的麻烦。</span></p>
+        <p>打仗的时候，敌人穿着另一种衣服。现在呢？现在敌人有时候，穿着和自己一样的衣服。</p>
+      </div>
+      <div class="choices">
+        <button class="choice solo" data-next="s_lamp"><span class="txt">落 座</span></button>
+      </div>
+      ${codexHTML()}`
+  },
+
+  /* ============ 一 · 灯下 ============ */
+  s_lamp: {
+    marker: '一',
+    markerLabel: '灯 下',
+    text: [
+      '他把那张纸拿起来。那是一笔钱。',
+      '钱从哪里来，他知道。要拿去做什么，他也知道。',
+      '真正让他难受的，只剩下一个问题：',
+      '<span class="key">这笔钱，究竟是谁的钱？</span>',
+      '其实这并不是一个复杂的问题。人世间真正让人痛苦的事情，往往都不是因为问题复杂，而是因为答案太简单。',
+      '他甚至不愿意把它想得太明白。因为一旦想明白，就必须做事情。而做事情，就意味着得罪一个自己曾经十分尊敬的人。',
+      '桌上那一叠钱，他没有去碰。可他知道，真正压在桌上的，从来不只是钱。'
+    ],
+    choices: [
+      { text: '拿起那张纸，看清那一串数字', next: 's_face', stance: 1 },
+      { text: '把纸翻过去，扣在桌上', next: 's_avoid', stance: -1 }
+    ]
+  },
+
+  /* ============ 过渡：看清 ============ */
+  s_face: {
+    marker: null,
+    text: [
+      '数字没有变。还是那一串。',
+      '他知道这意味着什么。那笔钱，不是机关的钱，不是工程的钱，也不是粮食的钱。',
+      '可他仍然愿意再给自己一次机会——也许，是有人弄错了账目。至少，他愿意当面问清楚。',
+      '窗外，城市已经安静下来。他站起来，披上外套。'
+    ],
+    choices: [
+      { text: '第二天，去见那个人', next: 's_meeting' },
+      { text: '再等一等，也许是自己看错了', next: 's_wait', stance: -1 }
+    ]
+  },
+
+  /* ============ 过渡：扣住 ============ */
+  s_avoid: {
+    marker: null,
+    text: [
+      '他把纸翻了过去，扣在桌上。',
+      '灯还亮着。数字被压在纸的背面，可他觉得它们还在那里，透过纸张，一点一点地渗出来。',
+      '他回到家，坐在床沿上，没有开灯。黑暗里，那串数字比灯下更清楚。',
+      '他知道，逃避不会让数字变小。它们只会在夜里，越长越大。'
+    ],
+    choices: [
+      { text: '还是去见他', next: 's_meeting', stance: 1 },
+      { text: '把那张纸，锁进抽屉', next: 'end_silence_early', stance: -2 }
+    ]
+  },
+
+  /* ============ 过渡：再看 ============ */
+  s_wait: {
+    marker: null,
+    text: [
+      '他又看了一遍。一遍，又一遍。',
+      '数字依旧是数字，纸依旧是纸。没有看错。',
+      '窗外的城市安静下来。他忽然觉得，等待本身，就是一种回答。',
+      '他拖得越久，那个答案就越清楚——他知道，他什么都知道。'
+    ],
+    choices: [
+      { text: '去见他', next: 's_meeting' },
+      { text: '把那张纸，锁进抽屉', next: 'end_silence_early', stance: -2 }
+    ]
+  },
+
+  /* ============ 二 · 会面 ============ */
+  s_meeting: {
+    marker: '二',
+    markerLabel: '会 面',
+    text: [
+      '第二天，他去见了那个人。',
+      '屋子里暖和得很，桌上放着茶。那个人见他进来，抬起头笑了笑：“坐。”',
+      '他坐下来。两个人之间隔着一张桌子。这张桌子并不大，可他忽然觉得，它比从前战场上隔着的那条河还远。',
+      '“那笔钱。不能这么用。”',
+      '那个人没有生气，甚至还笑了：“老同志，你怎么还是这个脾气？”',
+      '他往椅背上一靠：“现在是什么时候？百废待兴。机关要办事，生产要恢复，什么都缺钱。上面要成绩，下面要吃饭，工程不能停，机关不能散。我们这些人不想办法，难道让老百姓自己想办法？”',
+      '他说得很快。每一句话单独听，都没有什么错，甚至都很有道理。',
+      '这恰恰让他更加难受。<span class="key">真正危险的事情，从来不会一开始就长着一张坏人的脸。它往往穿着“为了大局”的衣服。</span>',
+      '“你说，什么才算机关的钱？”',
+      '他没有回答。',
+      '那个人端起茶杯，慢慢喝了一口：“今天不用这个钱，明天工程停了。工程停了，多少人没饭吃？你说我们是为了守规矩，还是为了人民？”',
+      '这句话不重，却正好砸在他心里最软的地方。因为他当然也是为了人民。',
+      '“老李，我们一起过来的。你还不知道我？”',
+      '这句话让他的心突然疼了一下。是的，他们一起过来的。一起挨过饿，一起躲过枪，一起在炮火里没有后退过。',
+      '所以现在坐在这里的人，究竟是谁？是他认识的那个人，还是已经变成了另一个人？',
+      '起身的时候，那个人送了他一句：“老李，别把事情想得那么复杂。”'
+    ],
+    choices: [
+      { text: '“不该动的，不能动。”', next: 's_street', stance: 2 },
+      { text: '被“我们一起过来的”打动，没有再往下说', next: 's_street', stance: -1 },
+      { text: '沉默，只留下一句“我还会想这件事”', next: 's_street', stance: 0 }
+    ]
+  },
+
+  /* ============ 三 · 街头 ============ */
+  s_street: {
+    marker: '三',
+    markerLabel: '街 头',
+    text: [
+      '那天晚上，他走得很慢。街上的灯，一盏一盏亮起来。',
+      '他走到一个小摊前，却没有坐下。摊主正在收拾东西，一只铁锅里，还剩下一点汤。',
+      '不知道为什么，他忽然想起战争年代。那时候他们也饿。饿得厉害的时候，一碗稀饭都能让人觉得是好东西。',
+      '后来革命胜利了，他们终于不用再挨饿。',
+      '可一个奇怪的念头忽然钻进他的脑子：<span class="key">一个人吃饱以后，会不会慢慢忘记自己从前为什么饿？</span>',
+      '他被自己的念头吓了一跳。太刻薄了。他不应该这样想自己的同志。',
+      '他继续走。走了一段，又停下来。他开始替那个人辩护。',
+      '也许，真的只是为了机关生产。也许，真的只是为了工作。也许，确实没有想到后果。也许……',
+      '他忽然发现，自己已经在脑子里替那个人织起了一张越来越大的网。每一个“也许”，都可以成为一个理由。每一个理由，都可以让一个人暂时不必承担责任。',
+      '夜风吹过来。很冷。'
+    ],
+    choices: [
+      { text: '停下来，承认那张网是在替自己开脱', next: 's_pen', stance: 2 },
+      { text: '也许真的只是为工作，没有别的意思', next: 's_pen', stance: -1 },
+      { text: '太晚了，回家再说', next: 's_pen', stance: 0 }
+    ]
+  },
+
+  /* ============ 四 · 落笔（关键分岔）============ */
+  s_pen: {
+    marker: '四',
+    markerLabel: '落 笔',
+    text: [
+      '第二天，他又看了一遍那些材料。',
+      '数字依旧是数字，纸依旧是纸。可是现在，它们已经不再只是数字和纸。<span class="key">它们开始有了重量。</span>',
+      '他想起那些正在修河的人，想起那些等着粮食的人。',
+      '他低下头，手指轻轻敲着桌面。一下。两下。',
+      '他想起自己参加革命的时候。那时候他没有想过功劳，没有想过位置，没有想过将来会住什么样的房子，吃什么样的饭。他甚至没有想过自己能不能活到革命胜利。他只是觉得：这世道不能这样下去了。',
+      '就是这么简单。这么幼稚。这么固执。也是这么不可动摇。',
+      '他忽然明白，自己现在真正要面对的，并不是那个人，<span class="key">而是自己。</span>',
+      '他拿起笔。这一次，没有再放下。',
+      '可是笔尖落下以前，他仍然停顿了一下。他最后想的不是“我要举报他”，而是——',
+      '<span class="key">“如果我错了呢？”</span>',
+      '这个问题，他没有答案。没有人能够在一个人落笔之前告诉他结局。历史也不会。'
+    ],
+    choices: [
+      { text: '落下第一行。只写事实，不写一句气话', next: 's_insomnia' },
+      { text: '把笔，慢慢放下', next: 'end_silence_late' },
+      { text: '写了一半，又停下来，划掉', next: 'end_crossing' }
+    ]
+  },
+
+  /* ============ 五 · 失眠（落笔线）============ */
+  s_insomnia: {
+    marker: '五',
+    markerLabel: '失 眠',
+    text: [
+      '事情交出去以后，他反而睡不着了。',
+      '材料已经不在自己手里。这是一个很奇怪的感觉。此前他最担心的是没人知道；现在有人知道了，他却开始担心知道的人太多。',
+      '他躺在床上，睁着眼睛看天花板。',
+      '白天有人问他：“你反映的情况，都有根据吗？”“你确定吗？”',
+      '他说：“有。”“确定。”',
+      '说完这两个字，他就开始后悔。不是后悔反映，而是后悔自己说得太快。',
+      '夜里，他坐起来，倒了一杯水，喝了一口，又放下。',
+      '他开始想象调查人员进入那个办公室的样子。他们会翻账本，会找人，会问话，会把过去那些看起来无关紧要的小事，一件一件重新摆到桌面上。',
+      '有些事情，当时看起来只是一点小毛病。可一旦把所有小毛病连起来，就会突然变成一条路。<span class="key">一条谁也不知道从什么时候开始、却已经走了很远的路。</span>',
+      '他坐在那里，忽然产生一个很卑劣、却很真实的念头：如果调查到此为止呢？如果只是批评几句呢？如果事情没有那么严重呢？',
+      '他停住了。因为他发现，自己正在等待一个对自己最方便的结局，而不是等待一个最真实的结局。',
+      '过了很久，他才近乎无声地说了一句：“不能这样。”'
+    ],
+    choices: [
+      { text: '我不等方便的结局。让事实说话。', next: 's_gazes', stance: 1 },
+      { text: '如果就这样结束了，也许更好', next: 's_gazes', stance: -1 }
+    ]
+  },
+
+  /* ============ 六 · 眼神（落笔线）============ */
+  s_gazes: {
+    marker: '六',
+    markerLabel: '眼 神',
+    text: [
+      '几天以后，事情开始变得不一样。',
+      '人们看他的眼神变了。有的人没有说什么，只是看见他以后，话突然少了。有的人拍拍他的肩膀：“老同志，想开点。”',
+      '他听见这句话，心里反而更加难受。',
+      '有人说：“过去革命那么艰苦，现在有些同志思想松懈，也是难免的。”',
+      '有人说：“关键还是要看大局。”',
+      '还有人说：“不能因为个别问题，影响整个队伍。”',
+      '这些话他都听过。每一句，他都能够理解，甚至有些话，他自己以前也说过。',
+      '他忽然意识到，“大局”是这个世界上最容易被所有人使用、也最难被一个人反驳的两个字。因为谁敢说自己不要大局？',
+      '可是——如果为了所谓的大局，允许一件小事情继续烂下去，那么等到所有小事情都烂了，<span class="key">大局还剩下什么？</span>',
+      '他想到这里，忽然觉得心里有什么东西安静下来。不是对某个人，而是对一种解释。',
+      '从那以后，他再听见“大家都是老同志”“过去都有功劳”“不要影响大局”这些话，心里都会先出现一个问题——',
+      '<span class="key">那么人民呢？谁来替那些没有功劳的人说话？谁来替那些连名字都不会出现在文件里的人说话？</span>'
+    ],
+    choices: [
+      { text: '那么人民呢？', next: 's_reunion', stance: 2 },
+      { text: '也许，是我太较真了', next: 's_reunion', stance: -1 }
+    ]
+  },
+
+  /* ============ 七 · 重逢（落笔线）============ */
+  s_reunion: {
+    marker: '七',
+    markerLabel: '重 逢',
+    text: [
+      '真正让他难受的，是那次见面。',
+      '他没有想到，那个人还会主动来找自己。门被推开，还是那张熟悉的脸，甚至比从前更加疲惫。',
+      '两个人看了一会儿，谁都没有先说话。',
+      '“你为什么非要这样？”',
+      '他没有回答。',
+      '“我们认识多少年了？”',
+      '他仍然没有回答。',
+      '“你知道这会有什么后果吗？”',
+      '这句话让他抬起头。他看着对方，忽然觉得很悲哀。因为这句话真正问的，也许是：“你难道不知道你这样做，会让我有什么后果吗？”',
+      '他当然知道。正因为知道，才这么痛苦。',
+      '“我劝过你。”“我不止一次劝过你。”“你为什么不听？”',
+      '对面沉默了很久，然后说：“事情没有你想得那么严重。”',
+      '他忽然想笑，可他笑不出来。',
+      '“如果没有问题，你为什么怕查？”',
+      '对方没有回答。',
+      '“如果没有问题，为什么不能让组织查？”',
+      '还是没有回答。',
+      '屋子里很安静。最后，那个人说：“你这是不相信我。”',
+      '他看着他，过了很久，才说——'
+    ],
+    choices: [
+      { text: '“我不是不相信你。正因为我相信过你。”', next: 's_investigation', stance: 2 },
+      { text: '他没有再解释，只是看着对方', next: 's_investigation', stance: 0 }
+    ]
+  },
+
+  /* ============ 八 · 调查（落笔线）============ */
+  s_investigation: {
+    marker: '八',
+    markerLabel: '调 查',
+    text: [
+      '那个人站起来，走到门口，又停了一下。他没有回头。',
+      '“老李。”',
+      '“嗯。”',
+      '“你会后悔的。”',
+      '门关上了。他坐在原来的位置，很久没有动。',
+      '他第一次发现，有时候一个人做对了一件事情，并不会因此立刻感到轻松。<span class="key">有些正确的事情，做完以后，只会让你失去一个曾经很重要的人。</span>',
+      '——',
+      '调查开始深入以后，过去那些散落在不同地方的事情，慢慢连接起来。账目被重新翻出来，证人被找来，一些他曾经听说过、却没有真正弄明白的事情，一件一件浮出水面。',
+      '他有时候甚至希望调查人员不要再找到新的东西。可每当这个念头出现，他就立即把它压下去。这一次，他不允许自己再逃。',
+      '因为事实已经开始自己说话。而他能够做的，只有闭嘴，或者说实话。<span class="key">闭嘴，有时候也可能成为一种说谎。</span>',
+      '他第一次理解了，为什么一个组织必须允许人批评自己的同志。',
+      '真正可怕的不是一个人犯错，而是所有人都知道他犯了错，却因为过去的感情、功劳、地位和关系，决定把它称作“小事”。小事不会自己消失。它只会等待下一件小事，然后是再下一件。',
+      '他把最后一份材料收好，站起来。',
+      '那一刻，他忽然想起年轻时候的自己。那个年轻人已经离他很远了，可是没有走远。还站在他的身体里面，还在问他：你当年，为什么参加革命？',
+      '他没有回答。因为答案，已经不需要回答了。'
+    ],
+    choices: [
+      { text: '继续', next: 'end_writing', solo: true }
+    ]
+  },
+
+  /* ============ 结局 · 落笔（心志三档尾声）============ */
+  end_writing: {
+    ending: true,
+    marker: '九 · 终',
+    render: (state) => {
+      const epi = writingEpilogue(state.stance);
+      return `
+        <div class="marker"><span class="num">九 · 终</span></div>
+        <div class="rule"></div>
+        <div class="ending-title">落 笔</div>
+        <div class="ending-sub">一九五一年 · 冬</div>
+        <div class="scene-text">
+          <p>一九五一年，冬。</p>
+          <p>那时候，他还不知道自己后来会不会被人理解，也不知道那个和自己并肩走过许多年的人，最后会走向哪里，更不知道这件事情最后会成为怎样的历史。</p>
+          <p>他只知道，事情已经不能再回到从前。</p>
+          <p>有些门一旦推开，就再也关不上。有些话一旦说出口，就再也收不回来。</p>
+          <p>而历史，就是从这些无人知道结局的时刻开始的。</p>
+          <p>多年以后，人们会把这件事情写进书里，会给它一个明确的名称，会给每一个人写上姓名，会把日期、会议、材料、调查、处分，一项一项排列整齐。那时候一切都会显得如此清楚，仿佛事情从一开始就注定如此，仿佛没有犹豫，没有恐惧，没有深夜里一次又一次的自我怀疑。</p>
+          <p>可是历史最容易骗人之处，就是它会把已经发生的事情，写成必然发生的事情。</p>
+          <p>其实不是。在那个夜晚，一切都还没有发生。有人还可以沉默，有人还可以劝阻，有人还可以回头，有人还可以装作什么都不知道。</p>
+        </div>
+        <div class="scene-text" style="margin-top:30px;">
+          ${epi.map(p => `<p>${p}</p>`).join('')}
+        </div>
+        ${archiveHTML()}
+        <div class="restart"><button data-action="restart">重 新 开 始</button></div>`;
+    }
+  },
+
+  /* ============ 结局 · 沉默（早）============ */
+  end_silence_early: {
+    ending: true,
+    render: (state) => `
+      <div class="marker" style="margin-bottom:10px;">终</div>
+      <div class="rule"></div>
+      <div class="ending-title">沉 默</div>
+      <div class="ending-sub">那串数字，搬到了枕头下面</div>
+      <div class="scene-text">
+        <p>他把那张纸锁进了抽屉。</p>
+        <p>抽屉关上的那一瞬，很轻。可他听见了，像是一扇门，在很远的地方合上。</p>
+        <p>他对自己说：也许，事情真的没有那么严重。也许，再等等，会有别的办法。也许，“我们一起过来的”这句话，比那一串数字，更重要。</p>
+        <p>他不知道这个回答，能维持多久。</p>
+        <p>日子一天天过去。工程继续，账目继续，那笔钱，去了它该去的地方。</p>
+        <p>可那串数字，没有消失。它只是从桌上，搬到了他的枕头下面。</p>
+        <p>夜里，他有时候会醒来，听见很远的地方，有人在修河。</p>
+        <p>他知道，有一天，这件事会被别人看见。被另外一个人，在另外一张桌子前，面对同样的那盏灯。只是那一天来临的时候，坐在那张桌子前的，<span class="key">不会是他了。</span></p>
+        <p>他这一生，把那个没有说出口的句子，藏了五十年。</p>
+        <p>没有人知道。连他自己，也许都不完全知道。</p>
+        <p>只是每当有人提起“大局”，他会停顿一下。因为“人民”这两个字，曾经坐在他桌子的对面，等他开口。</p>
+        <p>他等，了一辈子。</p>
+      </div>
+      ${archiveHTML()}
+      <div class="restart"><button data-action="restart">重 新 开 始</button></div>`
+  },
+
+  /* ============ 结局 · 沉默（晚，落笔未成）============ */
+  end_silence_late: {
+    ending: true,
+    render: (state) => `
+      <div class="marker" style="margin-bottom:10px;">终</div>
+      <div class="rule"></div>
+      <div class="ending-title">未 落 之 笔</div>
+      <div class="ending-sub">笔尖，离开了纸</div>
+      <div class="scene-text">
+        <p>他把笔，慢慢放回了笔架。</p>
+        <p>笔尖离开了纸。那张纸还是那张纸，数字还是那些数字。可是有什么东西，在这一刻，关上了。</p>
+        <p>他对自己说：也许，事情真的没有那么严重。也许，我再看看，会想得更明白。也许，现在还不是时候。</p>
+        <p>“如果我错了呢？”——这个问题，他始终没有答案。</p>
+        <p>可他把笔放下以后，发现，这个问题变得不再重要了。他不需要答案了。他需要的，是一个可以继续沉默的理由。</p>
+        <p>理由总是找得到的。</p>
+        <p>日子一天天过去。那笔钱去了它该去的地方。工程，继续。</p>
+        <p>只是从那一夜起，他每次拿起笔写字，都会在落笔之前，停顿一下。</p>
+        <p>停很久。</p>
+        <p>他这一生，落过很多次笔。填过很多张表，写过很多份材料，签过很多个名字。</p>
+        <p>可就是那一行字，<span class="key">始终没有落下去。</span></p>
+      </div>
+      ${archiveHTML()}
+      <div class="restart"><button data-action="restart">重 新 开 始</button></div>`
+  },
+
+  /* ============ 结局 · 涂痕 ============ */
+  end_crossing: {
+    ending: true,
+    render: (state) => `
+      <div class="marker" style="margin-bottom:10px;">终</div>
+      <div class="rule"></div>
+      <div class="ending-title">涂 痕</div>
+      <div class="ending-sub">一半是字，一半是墨</div>
+      <div class="scene-text">
+        <p>他写了一行。又写了半行。</p>
+        <p>然后，他停住了。</p>
+        <p>笔尖悬在纸的上方，一滴墨，慢慢洇开。</p>
+        <p>他看着自己写下的字。那些字是对的。每一个字，都是事实。</p>
+        <p>可它们一旦成形，就再也收不回来了。</p>
+        <p>他拿起笔，划掉了那半行字。墨迹被一道一道压住，像一条一条，被抹掉的证据。</p>
+        <p>他没有交出去，也没有锁起来。那张纸，就那样放在桌上——<span class="key">一半是字，一半是涂痕。</span></p>
+        <p>他后来常常想：我到底写了什么？</p>
+        <p>写的是事实，划掉的，也是事实。最后留在纸上的，只有墨的划痕。像一个人想说、又不敢说，最后只能说出的那个——</p>
+        <p>……</p>
+        <p>他没有落笔，也没有真正放下。他停在了两者之间。</p>
+        <p>那个位置，最难受。因为两边，他都没有去。</p>
+        <p>后来，案件还是发生了。刘青山、张子善，一九五二年二月十日。</p>
+        <p>李克才手里那张一半是字、一半是涂痕的纸，被夹进了某个抽屉，再也没有拿出来。</p>
+        <p>二〇〇一年六月三十日，他在天津病逝，享年八十四岁。</p>
+        <p>整理遗物的时候，有人在抽屉里发现了那张纸。</p>
+        <p>一半是字，一半是涂痕。</p>
+        <p>没有人把它销毁，也没有人把它交出去。它只是被放在那里。像一个没有做完的梦。也像一道，<span class="key">到死都没有落下的笔。</span></p>
+      </div>
+      ${archiveHTML()}
+      <div class="restart"><button data-action="restart">重 新 开 始</button></div>`
+  }
+};
+
+// ---- 落笔结局：心志三档尾声 ----
+function writingEpilogue(stance) {
+  if (stance >= 7) {
+    return [
+      '他落笔的那一夜，没有成为任何人的英雄。',
+      '历史没有要求每一个人都成为伟大的人。很多时候，它只要求一个人在一个极小的时刻，不要做一个懦弱的人。',
+      '而所谓勇敢，也不是心里没有恐惧。恰恰相反——<span class="key">勇敢是，恐惧已经把你所有的退路都告诉你了，而你仍然没有选择那条退路。</span>'
+    ];
+  }
+  if (stance >= 3) {
+    return [
+      '他落笔了。',
+      '手，也许有一点抖。笔尖离开纸面、又落下的那一瞬，他听见了自己的心跳。',
+      '但那一行字，到底还是落在了纸上。很慢。很重。没有一句骂人的话，只写着事实。',
+      '<span class="key">从这一笔开始，这已经不再只是两个人之间的事情了。</span>'
+    ];
+  }
+  return [
+    '他落笔了。',
+    '只是直到很后来，他仍说不清，自己那一刻究竟是勇敢，还是在害怕。也许，两者都是。',
+    '他把那张纸交出去以后，夜里常常醒来，一遍一遍地问自己：如果我错了呢？',
+    '这个问题，他始终没有等到答案。可他知道，自己再也不能<span class="key">明知不对，还继续沉默</span>了。'
+  ];
+}
+
+// ---- 历史档案卡 HTML ----
+function archiveHTML() {
+  const body = HISTORICAL.map(item =>
+    item.class
+      ? `<p class="final">${item.html}</p>`
+      : `<p>${item.t}</p>`
+  ).join('');
+  return `<div class="archive">${body}</div>`;
+}
+
+/* ================================================================
+   运行时
+   ================================================================ */
+const column = document.getElementById('column');
+const corner = document.getElementById('cornerRestart');
+
+const state = { stance: 0, scene: 'intro' };
+
+function lampFor(stance) {
+  // 心志约在 -7..10 之间 → 映射到灯光 0.3..1
+  const t = Math.max(0, Math.min(1, (stance + 7) / 17));
+  return (0.3 + t * 0.7).toFixed(2);
+}
+function applyLamp() {
+  document.documentElement.style.setProperty('--lamp', lampFor(state.stance));
+}
+
+/* ---- 结局图鉴：localStorage 记录已解锁结局（仅本机） ---- */
+const ENDINGS = {
+  end_writing: '落笔',
+  end_silence_early: '沉默',
+  end_silence_late: '未落之笔',
+  end_crossing: '涂痕'
+};
+const LS_KEY = 'yidieqian_endings';
+function loadUnlocked() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function unlockEnding(id) {
+  if (!ENDINGS[id]) return false;
+  const list = loadUnlocked();
+  if (list.includes(id)) return false;
+  list.push(id);
+  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) {}
+  return true;
+}
+function codexHTML() {
+  const unlocked = loadUnlocked();
+  const cells = Object.keys(ENDINGS).map(id =>
+    unlocked.includes(id)
+      ? `<span class="cell lit">${ENDINGS[id]}</span>`
+      : `<span class="cell">？？？</span>`
+  ).join('');
+  const n = unlocked.length;
+  const hint = n === 0 ? '四条路，只有一条落笔。'
+    : (n === 4 ? '四条路，都走过了。' : '已走过 ' + n + ' / 4 条');
+  return `
+    <div class="codex">
+      <div class="label">结 局</div>
+      <div class="row">${cells}</div>
+      <div class="hint">${hint}</div>
+    </div>`;
+}
+
+/* ---- 心志 gauge（显性提示）+ 首次解锁 toast ---- */
+const gaugeEl = document.getElementById('gauge');
+const gaugeWord = document.getElementById('gaugeWord');
+const gaugeFill = document.getElementById('gaugeFill');
+function stanceWord(stance) {
+  if (stance <= -3) return '动摇';
+  if (stance <= -1) return '犹疑';
+  if (stance <= 2)  return '平稳';
+  if (stance <= 6)  return '坚定';
+  return '笃定';
+}
+function updateGauge() {
+  const t = Math.max(0, Math.min(1, (state.stance + 4) / 12));
+  gaugeFill.style.height = (12 + t * 88).toFixed(0) + '%';
+  gaugeWord.textContent = stanceWord(state.stance);
+  gaugeEl.classList.toggle('show', state.scene !== 'intro');
+}
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function toast(html) {
+  toastEl.innerHTML = html;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3600);
+}
+
+function sceneHTML(id) {
+  const sc = SCENES[id];
+  if (!sc) return '';
+  if (sc.render) return sc.render(state);
+
+  let html = '';
+  if (sc.marker) {
+    const label = sc.markerLabel ? ` · ${sc.markerLabel}` : '';
+    html += `<div class="marker"><span class="num">${sc.marker}</span>${label}</div><div class="rule"></div>`;
+  }
+  html += `<div class="scene-text">` + sc.text.map(p => `<p>${p}</p>`).join('') + `</div>`;
+  html += `<div class="choices">`;
+  sc.choices.forEach((c, i) => {
+    const idx = String(i + 1);
+    html += `<button class="choice${c.solo ? ' solo' : ''}" data-next="${c.next}" data-stance="${c.stance || 0}">
+      <span class="idx">${idx}</span><span class="txt">${c.text}</span></button>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+let animating = false;
+function go(id) {
+  state.scene = id;
+  if (animating) return;
+  animating = true;
+  column.classList.add('fade');
+  setTimeout(() => {
+    column.innerHTML = sceneHTML(id);
+    applyLamp();
+    updateGauge();
+    window.scrollTo(0, 0);
+    column.classList.remove('fade');
+    corner.classList.toggle('show', id !== 'intro');
+    if (ENDINGS[id] && unlockEnding(id)) {
+      toast('新结局已记录 <b>' + ENDINGS[id] + '</b> · ' + loadUnlocked().length + ' / 4');
+    }
+    // 聚焦第一个选择，便于键盘操作
+    setTimeout(() => {
+      const first = column.querySelector('button.choice, button[data-action]');
+      if (first) first.focus({ preventScroll: true });
+      animating = false;
+    }, 60);
+  }, 430);
+}
+
+// 事件委托：选择 / 重新开始
+column.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.action === 'restart') { reset(); return; }
+  if (btn.dataset.next) {
+    state.stance += parseInt(btn.dataset.stance || '0', 10);
+    go(btn.dataset.next);
+  }
+});
+corner.addEventListener('click', reset);
+
+function reset() {
+  state.stance = 0;
+  go('intro');
+}
+
+// 键盘：数字键选择，Enter/Space 推进单选
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    const solo = column.querySelector('button.choice.solo');
+    if (solo && document.activeElement !== column.querySelector('button')) {
+      e.preventDefault(); solo.click();
+    }
+  }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 9) {
+    const btns = column.querySelectorAll('button.choice');
+    if (btns[n - 1]) { e.preventDefault(); btns[n - 1].click(); }
+  }
+});
+
+// 启动
+column.innerHTML = sceneHTML('intro');
+applyLamp();
+updateGauge();
+</script>
+</body>
+</html>

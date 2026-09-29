@@ -1,12 +1,8 @@
 # WorkBuddy 项目数据（会话记录、记忆、临时探针），不属于源码
 .workbuddy/
 
-# 测试脚本产出的截图（shot* / mbti_* / psy_* / gate_* 等全部调试用图）
-tools/*.png
-
-# trace_choices.mjs / dump_play.py 导出的审计报告（可随时用 npm run trace / dump 重新生成）—— 生成物，不提交
-reports/*.txt
-# 手写审查/设计报告（如 strict_review_*.md）按需提交，不忽略
+# 原文素材本地存档（公众号/小说全文，版权原因不入仓库）
+wechat/
 
 # Python cache
 __pycache__/
